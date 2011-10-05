@@ -1,5 +1,5 @@
 import sys
-import getopt
+import optparse
 import re
 import string
 
@@ -32,16 +32,19 @@ import string
 
 class BeautifierOptions:
     def __init__(self):
-        self.indent_size = 4
-        self.indent_char = ' '
-        self.preserve_newlines = True
-        self.max_preserve_newlines = 10.
-        self.jslint_happy = False
-        self.brace_style = 'collapse'
-        self.keep_array_indentation = False
-        self.eval_code = False
+        self.options = {
+            "indent_size": 4,
+            "indent_char": ' ',
+            "preserve_newlines": True,
+            "max_preserve_newlines": 10,
+            "jslint_happy": False,
+            "brace_style": 'collapse',
+            "keep_array_indentation": False,
+            "eval_code": False,
+            }
 
-
+    def __getattr__(self, name):
+        return self.options[name]
 
     def __repr__(self):
         return \
@@ -1061,53 +1064,35 @@ class Beautifier:
 
 def main():
 
-    argv = sys.argv[1:]
+    parser = optparse.OptionParser()
+    parser.set_defaults(**BeautifierOptions().options)  # Ugly!
+    parser.add_option("--keep-array-indentation", "-k",
+                      action="store_true", dest="keep_array_indentation")
+    parser.add_option("--jslint-happy", "-j",
+                      action="store_true", dest="jslint_happy")
+    parser.add_option("--eval-code",
+                      action="store_true", dest="eval_code")
 
-    try:
-        opts, args = getopt.getopt(argv, "s:c:o:djbkil:h", ['indent-size=','indent-char=','outfile=', 'disable-preserve-newlines',
-                                                          'jslint-happy', 'brace-style=',
-                                                          'keep-array-indentation', 'indent-level=', 'help',
-                                                          'usage', 'stdin', 'eval-code'])
-    except getopt.GetoptError:
+    parser.add_option("--outfile", "-o", dest="outfile", default="stdout")
+    parser.add_option("--indent-size", "-s", type="int", dest="indent_size")
+    parser.add_option("--indent-char", "-c", dest="indent_char")
+    parser.add_option("--disable-preserve_newlines", "-d",
+                      action="store_false", dest="preserve_newlines")
+    parser.add_option("--brace-style", "-b", dest="brace_style")
+    parser.add_option("--stdin", "-i", action="store_true", dest="stdin",
+                      default=False)
+
+    options, args = parser.parse_args()
+    if not options.stdin and len(args) == 0:
         usage()
-        sys.exit(2)
-
-    js_options = default_options()
-
-    file = None
-    outfile = 'stdout'
-    if len(args) == 1:
-        file = args[0]
-
-    for opt, arg in opts:
-        if opt in ('--keep-array-indentation', '-k'):
-            js_options.keep_array_indentation = True
-        elif opt in ('--outfile', '-o'):
-            outfile = arg
-        elif opt in ('--indent-size', '-s'):
-            js_options.indent_size = int(arg)
-        elif opt in ('--indent-char', '-c'):
-            js_options.indent_char = arg
-        elif opt in ('--disable-preserve_newlines', '-d'):
-            js_options.preserve_newlines = False
-        elif opt in ('--jslint-happy', '-j'):
-            js_options.jslint_happy = True
-        elif opt in ('--eval-code'):
-            js_options.eval_code = True
-        elif opt in ('--brace-style', '-b'):
-            js_options.brace_style = arg
-        elif opt in ('--stdin', '-i'):
-            file = '-'
-        elif opt in ('--help', '--usage', '--h'):
-            return usage()
-
-    if not file:
-        return usage()
+        return
+    elif options.stdin:
+        infile = "-"
     else:
-        if outfile == 'stdout':
-            print(beautify_file(file, js_options))
-        else:
-            f = open(outfile, 'w')
-            f.write(beautify_file(file, js_options) + '\n')
-            f.close()
+        infile, = args  # ensures only one
 
+    if options.outfile == 'stdout':
+        print(beautify_file(infile, options))
+    else:
+        with open(options.outfile, 'w') as f:
+            f.write(beautify_file(infile, options) + '\n')
