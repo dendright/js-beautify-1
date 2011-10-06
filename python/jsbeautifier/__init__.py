@@ -30,7 +30,7 @@ import string
 # Here are the available options: (read source)
 
 
-class BeautifierOptions:
+class BeautifierOptions(object):
     def __init__(self):
         self.options = {
             "indent_size": 4,
